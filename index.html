@@ -1,0 +1,180 @@
+<!doctype html>
+<html>
+
+<head>
+    <style>
+        * {
+            padding: 0;
+            margin: 0
+        }
+    </style>
+    <script src="https://pixijs.download/release/pixi.js"></script>
+</head>
+
+<body>
+    <script>
+        //Store the images that we are going to use in the project into variables.
+        const slotMachineBodyImage = "https://raw.githubusercontent.com/raymondnkosi/simple_slot_game/main/machine.png",
+            reelImage = "https://raw.githubusercontent.com/raymondnkosi/simple_slot_game/main/tileset.jpg",
+            buttonImage = "https://raw.githubusercontent.com/raymondnkosi/simple_slot_game/main/Spin.png";
+
+        //Declare and initialize the reel sets used in the game. 
+        const reel1 = ["A", "K", "Q", "A", "J", "J", "T", "A", "Q", "T", "A", "J"],
+            reel2 = ["J", "T", "Q", "K", "A", "J", "T", "T", "A", "K", "Q", "Q"],
+            reel3 = ["A", "T", "K", "J", "Q", "Q", "T", "A", "K", "J", "A", "T"];
+
+        //Declare and initialize the rest of the variables which are going to be used in the project.
+        const slotHeight = 150,
+            slotWidth = 126,
+            slotNumber = 3,
+            spaceBetweenSlots = 10,
+            slotCharacters = 5,
+            reelSpinCycles = 3,
+            slotSprites = [],
+            newSlotSpriteYPositions = [],
+            distances = [];
+
+        //Create a Pixi Application.
+        let app = new PIXI.Application({ backgroundColor: 0x007fff });
+
+        //Make the canvas fill the entire window and adjust automatically if it is resized.
+        app.renderer.view.style.position = "absolute";
+        app.renderer.view.style.display = "block";
+        app.renderer.autoDensity = true;
+        app.resizeTo = window;
+
+        //Add the canvas that Pixi creates to the HTML document.
+        document.body.appendChild(app.view);
+
+        //Load the images into the texture cache.
+        PIXI.Loader.shared.add([reelImage, slotMachineBodyImage, buttonImage]).load(setup);
+
+        //This setup function will run when all the images have loaded.
+        //It creates all the slot machine sprites and adds them to the PIXI application.
+        function setup() {
+            //Create the slot machine body sprite and add it to the stage.
+            let texture = PIXI.utils.TextureCache[slotMachineBodyImage];
+            bodySprite = new PIXI.Sprite(texture);
+            bodySprite.x = 0;
+            bodySprite.y = 0;
+            bodySprite.scale.set(0.6, 0.6);
+            app.stage.addChild(bodySprite);
+
+            //Create the slot machine button sprite and add it to the stage.
+            texture = PIXI.utils.TextureCache[buttonImage];
+            buttonSprite = new PIXI.Sprite(texture);
+            buttonSprite.x = 520;
+            buttonSprite.y = 100;
+            buttonSprite.anchor.set(0.5, 0.5);
+            app.stage.addChild(buttonSprite);
+            buttonSprite.interactive = true;
+
+            //When the slot machine button is pressed, execute the spinSlotReels function.
+            buttonSprite.click = function (e) {
+                spinSlotReels();
+            }
+
+            buttonSprite.touchstart = function (e) {
+                spinSlotReels();
+            }
+
+            //Create three tiling sprites for our reel and them to the stage.
+            //The reason why we use tiling sprites is because they can repeat themselves when we cycle through the reel.
+            texture = PIXI.utils.TextureCache[reelImage];
+            for (let i = 0; i < slotNumber; i++) {
+                slotSprites[i] = new PIXI.TilingSprite(texture, slotWidth, slotHeight + 17);//Add 17 to the height to fill up the entire body of the slot machine.
+                slotSprites[i].tilePosition.x = 0;
+                slotSprites[i].tilePosition.y = (-i * slotHeight) + spaceBetweenSlots;//Add vertical space between slots to center the slots in the reel and prevent cutting off symbols.
+                slotSprites[i].tileScale.x = 0.9;
+                slotSprites[i].x = 13 + (i * 140);//Space the slots out evenly horizontally, 13 is the number of pixels between each slot and 140 is the sum of the width of the slot plus the 13 plus one. I did not create variables for them because they are only used once.
+                slotSprites[i].y = 20;
+                app.stage.addChild(slotSprites[i]);
+            }
+        }
+
+        //This function generates random values for each of the slots when called.
+        //It then triggers the spinning reel animation and then checks if the player has won.
+        function spinSlotReels() {
+            for (let i = 0; i < slotNumber; i++) {
+                const randomReelIndex = getRandomInt(0, 11);//Since all our reels have 12 elements, generate a random index for the new slot position.
+                newSlotSpriteYPositions[i] = getSlotPositions(randomReelIndex, i) + spaceBetweenSlots;//Determine which character the new index number corresponds to and return the coordinates for that character.
+                slotSprites[i].tilePosition.y = newSlotSpriteYPositions[i];//Assign the new coordinates to the current slot tiling sprite.
+                distances[i] = slotHeight * slotCharacters * reelSpinCycles;//Determine the distance the slot reel has to travel in order to get to the new coordinates.
+            }
+            animateSlotWheels();//Start the spinning reel animation.
+            checkIfWon();//Check if the player won.
+        }
+
+        //This function starts the animation of the reel spinning by increasing or deacreasing the position of the slot sprite until the distance required to be covered reaches zero.
+        //It also spins the spin button when pressed.
+        function animateSlotWheels() {
+            for (let i = 0; i < slotNumber; i++) {
+                if (distances[i] > 0) {
+                    slotSprites[i].tilePosition.y += 10;
+                    distances[i] -= 10;
+
+                    buttonSprite.rotation += 10;
+                }
+            }
+            requestAnimationFrame(animateSlotWheels);//Call this function on the next screen refresh(60 times per second);
+        }
+
+        //This function checks if the player has won by comparing the current slot coordinates with the previous ones.
+        function checkIfWon() {
+            let flag = true;
+            for (let i = 1; i < slotNumber; i++) {
+                if (newSlotSpriteYPositions[i] !== newSlotSpriteYPositions[i - 1]) {
+                    flag = false;
+                }
+            }
+            if (flag) {
+                console.log("The player wins!!!");
+                alert("You win!!!");
+            } else {
+                console.log("Try Again!");
+            }
+            return;
+        }
+
+        //This function returns a random integer between min (inclusive) and max (inclusive).
+        function getRandomInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        //This function returns a set of coordinates for a particlar character based on which slot/reel it belongs to.
+        function getSlotPositions(randomNumber, slotNumber) {
+            let slotCharacter;
+            if (slotNumber === 0) {
+                slotCharacter = reel1[randomNumber];
+            } else if (slotNumber === 1) {
+                slotCharacter = reel2[randomNumber];
+            } else {
+                slotCharacter = reel3[randomNumber];
+            }
+
+            switch (slotCharacter) {
+                case "A":
+                    console.log(`Slot ${slotNumber + 1}: A`);
+                    return 0;
+
+                case "J":
+                    console.log(`Slot ${slotNumber + 1}: J`);
+                    return -150;
+
+                case "K":
+                    console.log(`Slot ${slotNumber + 1}: K`);
+                    return -300;
+
+                case "Q":
+                    console.log(`Slot ${slotNumber}: Q`);
+                    return -450;
+
+                case "T":
+                    console.log(`Slot ${slotNumber}: T`);
+                    return -600;
+            }
+        }
+    </script>
+</body>
+
+</html>
